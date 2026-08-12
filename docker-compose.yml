@@ -1,0 +1,12 @@
+services:
+  dev:
+    image: node:24-bookworm-slim
+    working_dir: /app
+    user: "node"
+    environment:
+      HOME: /home/node
+    volumes:
+      - .:/app
+    ports:
+      - "5173:5173"
+    command: npm run dev -- --host 0.0.0.0

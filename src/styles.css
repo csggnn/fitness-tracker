@@ -1,0 +1,322 @@
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --active: #2ea043;
+  --paused: #d29922;
+  --danger: #f85149;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  overscroll-behavior: none;
+}
+
+.loading {
+  padding: 2rem;
+  color: var(--muted);
+}
+
+.screen {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 100dvh;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0;
+}
+
+h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+
+.hint,
+.meta,
+.warmup {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+}
+
+/* Today */
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.choice {
+  flex: 1 1 4rem;
+  min-height: 3rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.choice.active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.start {
+  min-height: 5rem;
+  border-radius: 0.9rem;
+  border: none;
+  background: var(--active);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.start:disabled {
+  opacity: 0.6;
+}
+
+.summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.summary-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--surface);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.summary-list .detail {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Workout */
+
+.audio-banner {
+  min-height: 3.5rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--paused);
+  background: rgba(210, 153, 34, 0.15);
+  color: var(--paused);
+  font-size: 1rem;
+}
+
+.countdown {
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
+.countdown .time {
+  font-size: clamp(4.5rem, 30vw, 8rem);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.countdown .upcoming {
+  color: var(--muted);
+  font-size: 1rem;
+  margin-top: 0.3rem;
+}
+
+/* A held countdown and a running one must not look alike. */
+.workout.paused {
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(210, 153, 34, 0.09) 0 14px,
+    transparent 14px 28px
+  );
+}
+
+.workout.paused .countdown .time {
+  color: var(--paused);
+}
+
+.workout.paused .countdown .upcoming {
+  color: var(--paused);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.pair {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.card {
+  flex: 1;
+  padding: 0.7rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  opacity: 0.55;
+}
+
+.card.active {
+  opacity: 1;
+  border-color: var(--active);
+  background: var(--surface-2);
+}
+
+.card .role {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.card.active .role {
+  color: var(--active);
+}
+
+.card .title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.card .detail {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.set-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.set-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.stepper {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.stepper button {
+  flex: 0 0 4.5rem;
+  min-height: 4rem;
+  font-size: 2rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.stepper button:disabled {
+  opacity: 0.4;
+}
+
+.stepper .value {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border-radius: 0.7rem;
+}
+
+.stepper .value strong {
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.stepper .value small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+}
+
+.controls {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: auto;
+}
+
+.control {
+  flex: 1;
+  min-height: 4.5rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.control.primary {
+  min-height: 5rem;
+  font-size: 1.4rem;
+  border-color: var(--accent);
+}
+
+.control.primary.resume {
+  background: var(--paused);
+  border-color: var(--paused);
+  color: #1c1200;
+}
+
+.controls.secondary {
+  margin-top: 0;
+}
+
+.controls.secondary .control {
+  min-height: 3.2rem;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.control.danger {
+  color: var(--danger);
+  flex: 0 0 6rem;
+}
+
+.finished .summary-list {
+  margin-bottom: auto;
+}
