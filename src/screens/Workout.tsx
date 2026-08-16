@@ -4,7 +4,7 @@ import { useWakeLock } from '../timer/useWakeLock'
 import type { SessionApi } from '../timer/useSession'
 import type { SlotPlan } from '../timer/slotPlan'
 import type { SetLog } from '../data/types'
-import { formatClock, formatLoad, formatSets } from '../format'
+import { formatClock, formatLoad, formatSets, formatTarget } from '../format'
 
 const FAST = new URLSearchParams(window.location.search).has('fast')
 const SLOT_CHOICES = FAST ? [5_000, 10_000, 75_000] : [70_000, 75_000, 82_000, 90_000]
@@ -14,6 +14,7 @@ export default function Workout(api: SessionApi) {
     plan,
     exercises,
     logs,
+    loads,
     currentSlot,
     msToNextPing,
     paused,
@@ -43,6 +44,7 @@ export default function Workout(api: SessionApi) {
   const slotA = blockSlots.find((s) => s.role === 'A')
   const slotB = blockSlots.find((s) => s.role === 'B')
   const isSingle = slotA?.exerciseId === slotB?.exerciseId
+  const nextId = nextSlotExercise(plan, currentSlot)
 
   if (finished) {
     return (
@@ -76,7 +78,7 @@ export default function Workout(api: SessionApi) {
       <section className="countdown">
         <div className="time">{formatClock(msToNextPing)}</div>
         <div className="upcoming">
-          {paused ? 'PAUSED' : `next: ${nextRole} · ${exercises[nextSlotExercise(plan, currentSlot)]?.name ?? '—'}`}
+          {paused ? 'PAUSED' : `next: ${nextRole} · ${exercises[nextId]?.name ?? '—'}${nextLoad(loads[nextId])}`}
         </div>
       </section>
 
@@ -86,7 +88,7 @@ export default function Workout(api: SessionApi) {
             title={exercises[slotA!.exerciseId]?.name ?? slotA!.exerciseId}
             role="A"
             active
-            detail={`${slot.targetReps}s hold`}
+            detail={formatTarget(`${slot.targetReps}s`, 'hold', loads[slotA!.exerciseId] ?? 0)}
           />
         ) : (
           <>
@@ -94,13 +96,13 @@ export default function Workout(api: SessionApi) {
               title={exercises[slotA!.exerciseId]?.name ?? slotA!.exerciseId}
               role="A"
               active={slot.role === 'A'}
-              detail={`${slotA!.targetReps} reps`}
+              detail={formatTarget(`${slotA!.targetReps}`, 'reps', loads[slotA!.exerciseId] ?? 0)}
             />
             <ExerciseCard
               title={exercises[slotB!.exerciseId]?.name ?? slotB!.exerciseId}
               role="B"
               active={slot.role === 'B'}
-              detail={`${slotB!.targetReps} reps`}
+              detail={formatTarget(`${slotB!.targetReps}`, 'reps', loads[slotB!.exerciseId] ?? 0)}
             />
           </>
         )}
@@ -221,6 +223,11 @@ function SetEditor({
       </div>
     </section>
   )
+}
+
+/** Load clause of the next-up line. Empty for bodyweight work. */
+function nextLoad(load: number | undefined): string {
+  return load && load > 0 ? ` · ${formatLoad(load)} kg` : ''
 }
 
 function nextSlotExercise(plan: SlotPlan[], currentSlot: number): string {

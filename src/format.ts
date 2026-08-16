@@ -11,6 +11,14 @@ export function formatLoad(kg: number): string {
   return Number.isInteger(kg) ? String(kg) : kg.toFixed(1)
 }
 
+/**
+ * Target for one set: "10 × 50 kg" when loaded, "10 reps" or "45s hold" when not.
+ * Loaded work drops the unit label so the quantity and the load stay on one line.
+ */
+export function formatTarget(quantity: string, unit: string, load: number): string {
+  return load > 0 ? `${quantity} × ${formatLoad(load)} kg` : `${quantity} ${unit}`
+}
+
 /** Reps across the sets of one exercise. Bodyweight work carries no load clause. */
 export function formatSets(reps: number[], load: number): string {
   const joined = reps.join(' / ')
