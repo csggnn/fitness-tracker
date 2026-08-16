@@ -83,6 +83,15 @@ correctness.
   nodes, stop and disconnect them all, then rebuild from the new anchor. This is the only path that
   writes to the audio timeline, and it runs on start, pause, resume, jump, and slot length change.
 - Rebuild nothing while `pausedAt` is set. Pause stops and drops the queue; resume rebuilds it.
+- The queue is expressed in audio-clock time through one measured mapping to the system clock. That
+  mapping decays: the audio clock stops advancing while the context is suspended and runs at its own
+  rate otherwise. Re-measure it on every foreground tick and re-anchor the queue once the slip
+  exceeds a threshold, so a session that spent time with the screen locked does not run late.
+- Correct towards the system clock, not the audio clock. The countdown and `anchorMs` are both in
+  system time, so correcting the other way would keep the two displays consistent by drifting the
+  actual cadence of the session.
+- A re-anchoring requeues only slots the countdown has not passed, and leaves a ping that is already
+  sounding to finish. A cue may be dropped by a correction; it is never doubled or cut mid-beep.
 - Hold a `navigator.wakeLock.request('screen')` for the session duration, including while paused.
   Re-acquire on `visibilitychange`, since the lock is released when the tab hides.
 - Foreground ticks drive the countdown display only. They never schedule audio.
@@ -92,6 +101,10 @@ correctness.
 ### Requirements
 - Ping timing accurate to within one audio buffer of the grid. Measured against `anchorMs`,
   not against wall-clock render time.
+- The beep and the countdown stay within 200 ms of each other for a whole session, including one
+  that spends time suspended. The error does not accumulate: it is bounded, not merely small.
+- The workout screen names the next exercise and its load before the ping that starts it, so the
+  plate change can be made during the preceding rest.
 - Pings continue with the screen off and the browser backgrounded for a full 30 minute session.
 - Session state survives a tab reload: reopening restores the running timer from `anchorMs`, or the
   frozen countdown if `pausedAt` is set.
@@ -104,6 +117,12 @@ correctness.
   pause duration; jump advances exactly one slot; parity holds after any sequence of the three.
 - Unit test that a rebuild cancels every previously scheduled node, against a mocked `AudioContext`.
   A leaked node is inaudible in unit tests and wrong only on the gym floor.
+- Simulation of a full session against an audio clock that runs at its own rate and stalls while
+  suspended, asserting the error between each beep and its slot on the countdown. Run with the
+  correction disabled it reproduces the fault: a 3 second stall leaves every subsequent ping that
+  far behind.
+- `?debug` on the workout screen reports the current slip and the number of corrections, so a
+  session on the target device can be checked without instrumentation.
 - Manual test: 30 minute run with the screen locked, on the target device. This is the only check
   that covers freezing and audio suspension, so it gates milestone 1.
 
@@ -114,7 +133,7 @@ correctness.
 ```
 ExerciseTemplate  id, name, equipment, unilateral, loadStep, defaultReps[]
 WorkoutTemplate   id, name, blocks[]
-Block             kind (warmup | superset | single | finisher), exerciseA, exerciseB?, sets, targetReps[]
+Block             kind (warmup | superset | single | finisher), exerciseA, exerciseB?, sets, targetReps
 Session           id, templateId, date, status, anchorMs, slotMs, pausedAt?, totalPausedMs,
                   startedAt, endedAt, note
 SetLog            id, sessionId, exerciseId, role (A | B), setIndex, slotIndex, startedAt,
@@ -125,8 +144,8 @@ SetLog            id, sessionId, exerciseId, role (A | B), setIndex, slotIndex, 
   training plan now records the incline press as 50 kg (10 kg bar plus 20 kg per side).
 - `loadStep` is the increment used by the plus and minus controls, 2 or 2.5 depending on the
   available plates. It affects entry only, not storage.
-- `targetReps` is an array per block, so `12 / 10 / 8` and `3x10` use the same representation.
-  The previous draft's single "reps" field cannot express rising-load sets.
+- `targetReps` is one number per block, applied to every set of that block. Per-set rep schemes such
+  as `12 / 10 / 8` are not supported; a block with a different target is a different block.
 - Each superset set produces two `SetLog` rows, one per role. `startedAt` is the slot ping time, so
   both A and B start times are recorded.
 - `SetLog.load` records what was actually used, so a mid-session load change is captured per set.
@@ -142,9 +161,13 @@ SetLog            id, sessionId, exerciseId, role (A | B), setIndex, slotIndex, 
 
 1. **Today.** Start button. Last session summary.
 2. **Workout.** The only screen used in the gym. Must be readable at arm's length.
-   - Time to next ping, large, with the upcoming role (A or B) named.
-   - Current superset: A and B side by side, active one highlighted.
-   - Set counter and target reps.
+   - Time to next ping, large, with the upcoming role (A or B) named, the exercise it belongs to,
+     and the load that exercise will be performed at. The load is what the plate change is made
+     from, so it must be readable before the ping rather than after the set starts.
+   - Current superset: A and B side by side, active one highlighted. Each card carries the target
+     reps and the load for its exercise. Loaded work reads `10 × 50 kg`; bodyweight work reads
+     `10 reps` and carries no load clause.
+   - Set counter.
    - Rep entry prefilled with the target; tap to confirm, adjust if different.
    - Load field showing last session's value; plus and minus step by the exercise's `loadStep`.
    - Pause and resume as one toggle, jump-to-next, and slot length. The first two are the controls
