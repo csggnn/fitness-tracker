@@ -113,6 +113,15 @@ export function useSession() {
     }
   }, [session, grid, plan, clampedSlot, finished, loads, refreshLogs, currentSlot])
 
+  // The queue is pinned to a mapping between the audio clock and the system clock, and that
+  // mapping decays: the audio clock stops advancing while the context is suspended, which a locked
+  // screen does routinely. Left alone the pings run late against a countdown that is still right,
+  // so the mapping is re-measured every tick and the queue re-anchored once it has slipped.
+  useEffect(() => {
+    if (!session?.id || !grid || session.status !== 'running' || isPaused(grid)) return
+    scheduler.current?.resync(grid, slotIndex(grid, now) + 1, plan.length, now)
+  }, [grid, now, plan.length, session])
+
   const rebuildAudio = useCallback(
     (next: Grid, fromSlot: number) => {
       scheduler.current?.rebuild(next, fromSlot, plan.length)
@@ -228,7 +237,17 @@ export function useSession() {
     [plan, refreshLogs, session],
   )
 
-  // Contexts get suspended on some backgrounding paths; reclaim on the way back in.
+  /** Slip between the audio queue and the system clock, for the on-screen debug readout. */
+  const audioStatus = useCallback(
+    () => ({
+      driftMs: scheduler.current?.driftMs() ?? 0,
+      resyncs: scheduler.current?.resyncCount ?? 0,
+    }),
+    [],
+  )
+
+  // Contexts get suspended on some backgrounding paths; reclaim on the way back in. The tick that
+  // setNow forces is what re-anchors the queue against however long the context was stalled.
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
@@ -256,7 +275,7 @@ export function useSession() {
     needsAudioResume,
   }
 
-  return { ...view, start, togglePause, jump, setSlotMs, end, editSet, resumeAudio }
+  return { ...view, start, togglePause, jump, setSlotMs, end, editSet, resumeAudio, audioStatus }
 }
 
 function localDate(ms: number): string {

@@ -23,16 +23,42 @@ const B_TONE_HZ = 440
 const BEEP_S = 0.12
 const BEEP_GAP_S = 0.1
 
+/**
+ * Drift the epoch mapping is allowed to accumulate before the queue is re-anchored.
+ *
+ * Below this the correction is inaudible and rebuilding costs more than it fixes. Above it the
+ * pings are heard late against a countdown that is still right.
+ */
+const RESYNC_THRESHOLD_MS = 120
+
+/** A ping already sounding is left to finish; cutting it mid-beep is more jarring than its error. */
+const IN_FLIGHT_GUARD_S = 0.05
+
+/** One ping and every node it owns. An A ping is two beeps and is cancelled as a unit. */
+interface QueuedPing {
+  slotIndex: number
+  startsAt: number
+  endsAt: number
+  nodes: ScheduledNode[]
+}
+
 export class PingScheduler {
   private ctx: AudioContext
-  private nodes: ScheduledNode[] = []
+  private queue: QueuedPing[] = []
   private keepAlive?: AudioBufferSourceNode
-  /** Epoch time corresponding to ctx.currentTime === 0, captured once. */
+  /**
+   * Epoch time corresponding to ctx.currentTime === 0.
+   *
+   * The audio clock and the system clock are independent: the audio clock stops advancing while
+   * the context is suspended and runs at its own rate otherwise, so this mapping decays over a
+   * session and is re-measured by `resync`.
+   */
   private epochAtCtxZero: number
+  private resyncs = 0
 
   constructor(ctx: AudioContext, now: number = Date.now()) {
     this.ctx = ctx
-    this.epochAtCtxZero = now - ctx.currentTime * 1000
+    this.epochAtCtxZero = this.measureEpoch(now)
   }
 
   /** Created inside the start gesture; autoplay policy permits nothing else. */
@@ -47,7 +73,24 @@ export class PingScheduler {
   }
 
   get scheduledCount(): number {
-    return this.nodes.length
+    return this.queue.reduce((total, ping) => total + ping.nodes.length, 0)
+  }
+
+  /** Re-anchorings performed this session. Zero on a session whose clocks never diverged. */
+  get resyncCount(): number {
+    return this.resyncs
+  }
+
+  private measureEpoch(now: number): number {
+    return now - this.ctx.currentTime * 1000
+  }
+
+  /**
+   * How far the queue has slipped, in milliseconds. Positive means the audio clock has fallen
+   * behind the system clock and the queued pings are that late.
+   */
+  driftMs(now: number = Date.now()): number {
+    return this.measureEpoch(now) - this.epochAtCtxZero
   }
 
   private whenFor(grid: Grid, index: number): number {
@@ -62,6 +105,31 @@ export class PingScheduler {
    */
   rebuild(grid: Grid, fromSlot: number, totalSlots: number): void {
     this.cancelAll()
+    this.schedule(grid, fromSlot, totalSlots)
+  }
+
+  /**
+   * Re-anchors the epoch mapping to the system clock and requeues the pings that have not started.
+   *
+   * The countdown is derived from the system clock, so that clock is what the queue is corrected
+   * against: the session keeps the cadence the grid documents and the display stays truthful. A
+   * ping whose slot has already been passed is not requeued, so a correction can silence the
+   * current ping but can never double it.
+   *
+   * Returns whether the queue was rebuilt.
+   */
+  resync(grid: Grid, fromSlot: number, totalSlots: number, now: number = Date.now()): boolean {
+    if (grid.pausedAt !== undefined) return false
+    if (Math.abs(this.driftMs(now)) < RESYNC_THRESHOLD_MS) return false
+
+    this.epochAtCtxZero = this.measureEpoch(now)
+    this.resyncs++
+    this.cancelPending()
+    this.schedule(grid, fromSlot, totalSlots)
+    return true
+  }
+
+  private schedule(grid: Grid, fromSlot: number, totalSlots: number): void {
     if (grid.pausedAt !== undefined) return
 
     const first = Math.max(0, fromSlot)
@@ -69,21 +137,23 @@ export class PingScheduler {
       const when = this.whenFor(grid, i)
       // Past pings are dropped rather than fired late.
       if (when <= this.ctx.currentTime) continue
-      this.schedulePing(when, roleOf(i))
+      this.schedulePing(i, when, roleOf(i))
     }
   }
 
   /** A is a double beep, B a single one, so the cue is identifiable without looking. */
-  private schedulePing(when: number, role: 'A' | 'B'): void {
+  private schedulePing(slotIndex: number, when: number, role: 'A' | 'B'): void {
+    const entry: QueuedPing = { slotIndex, startsAt: when, endsAt: when, nodes: [] }
+    this.queue.push(entry)
     if (role === 'A') {
-      this.scheduleBeep(when, A_TONE_HZ)
-      this.scheduleBeep(when + BEEP_S + BEEP_GAP_S, A_TONE_HZ)
+      this.scheduleBeep(entry, when, A_TONE_HZ)
+      this.scheduleBeep(entry, when + BEEP_S + BEEP_GAP_S, A_TONE_HZ)
     } else {
-      this.scheduleBeep(when, B_TONE_HZ, BEEP_S * 1.6)
+      this.scheduleBeep(entry, when, B_TONE_HZ, BEEP_S * 1.6)
     }
   }
 
-  private scheduleBeep(when: number, hz: number, duration: number = BEEP_S): void {
+  private scheduleBeep(entry: QueuedPing, when: number, hz: number, duration: number = BEEP_S): void {
     const osc = this.ctx.createOscillator()
     const gain = this.ctx.createGain()
     osc.type = 'sine'
@@ -100,23 +170,27 @@ export class PingScheduler {
     osc.start(when)
     osc.stop(when + duration + 0.02)
 
-    this.nodes.push(osc, gain)
+    entry.nodes.push(osc, gain)
+    entry.endsAt = Math.max(entry.endsAt, when + duration + 0.02)
   }
 
   cancelAll(): void {
-    for (const node of this.nodes) {
-      try {
-        node.stop?.()
-      } catch {
-        // Gain nodes have no stop, and an oscillator that already ended throws.
+    for (const ping of this.queue) release(ping)
+    this.queue = []
+  }
+
+  /** Drops what has not started, keeps what is sounding, and forgets what has finished. */
+  private cancelPending(): void {
+    const cutoff = this.ctx.currentTime + IN_FLIGHT_GUARD_S
+    const sounding: QueuedPing[] = []
+    for (const ping of this.queue) {
+      if (ping.startsAt > cutoff || ping.endsAt <= this.ctx.currentTime) {
+        release(ping)
+        continue
       }
-      try {
-        node.disconnect()
-      } catch {
-        // Already disconnected.
-      }
+      sounding.push(ping)
     }
-    this.nodes = []
+    this.queue = sounding
   }
 
   /**
@@ -158,6 +232,21 @@ export class PingScheduler {
       await this.ctx.close()
     } catch {
       // Already closed.
+    }
+  }
+}
+
+function release(ping: QueuedPing): void {
+  for (const node of ping.nodes) {
+    try {
+      node.stop?.()
+    } catch {
+      // Gain nodes have no stop, and an oscillator that already ended throws.
+    }
+    try {
+      node.disconnect()
+    } catch {
+      // Already disconnected.
     }
   }
 }

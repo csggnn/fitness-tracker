@@ -7,6 +7,8 @@ import type { SetLog } from '../data/types'
 import { formatClock, formatLoad, formatSets, formatTarget } from '../format'
 
 const FAST = new URLSearchParams(window.location.search).has('fast')
+/** `?debug` surfaces the audio-versus-system clock slip, which is otherwise only audible. */
+const DEBUG = new URLSearchParams(window.location.search).has('debug')
 const SLOT_CHOICES = FAST ? [5_000, 10_000, 75_000] : [70_000, 75_000, 82_000, 90_000]
 
 export default function Workout(api: SessionApi) {
@@ -27,6 +29,7 @@ export default function Workout(api: SessionApi) {
     end,
     editSet,
     resumeAudio,
+    audioStatus,
   } = api
 
   const [showSlotPicker, setShowSlotPicker] = useState(false)
@@ -110,6 +113,7 @@ export default function Workout(api: SessionApi) {
 
       <section className="set-meta">
         Set {slot.setIndex + 1} of {slot.setsInBlock} · slot {currentSlot + 1}/{plan.length}
+        {DEBUG && <AudioDebug status={audioStatus()} />}
       </section>
 
       <SetEditor
@@ -222,6 +226,16 @@ function SetEditor({
         </button>
       </div>
     </section>
+  )
+}
+
+/** Slip of the audio queue against the system clock, and how often it has been corrected. */
+function AudioDebug({ status }: { status: { driftMs: number; resyncs: number } }) {
+  return (
+    <>
+      <br />
+      audio {Math.round(status.driftMs)} ms · {status.resyncs} resyncs
+    </>
   )
 }
 
