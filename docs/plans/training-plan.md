@@ -5,7 +5,7 @@ One **2:30 repeat timer**, started on your first work set.
 Each ping = **start the next A exercise**. Do the B exercise anywhere in the gap.
 The A-A start times are the only anchors that matter; B is flexible.
 
-- All exercises **3×10**, except **biceps machine 12/10/8** (rising load, so 32.5 kg is the average) and **abs 3×20**.
+- All exercises **3×10**, except **abs 3×20**.
 - Rest logic: A (the heavier/limiting move) is protected by the 2:30 cadence; B slots into the gap.
 
 ---
@@ -21,7 +21,7 @@ The A-A start times are the only anchors that matter; B is flexible.
 | Exercise | Load | Reps |
 |---|---|---|
 | A — Incline press (barbell) | 50kg | 3×10 |
-| B — Biceps machine | 32.5 kg (avg across sets) | 12 / 10 / 8 |
+| B — Biceps machine | 32.5 kg | 3×10 |
 
 *A-starts: 0:00 · 2:30 · 5:00*
 

@@ -25,9 +25,9 @@ describe('slot plan from the seeded training plan', () => {
     expect(aStarts[3]).toBe(450)
   })
 
-  it('carries the rising rep scheme on the biceps machine', () => {
+  it('repeats one rep target across the sets of a block', () => {
     const biceps = plan.filter((s) => s.exerciseId === 'biceps-machine')
-    expect(biceps.map((s) => s.targetReps)).toEqual([12, 10, 8])
+    expect(biceps.map((s) => s.targetReps)).toEqual([10, 10, 10])
   })
 
   it('gives the finisher a slot pair whose second ping advances nothing', () => {

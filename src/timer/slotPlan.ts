@@ -37,7 +37,7 @@ export function buildSlotPlan(template: WorkoutTemplate): SlotPlan[] {
           role: 'A',
           setIndex,
           setsInBlock: block.sets,
-          targetReps: repsAt(block.targetRepsA, setIndex),
+          targetReps: block.targetRepsA,
           informational: false,
         })
         slots.push({
@@ -47,7 +47,7 @@ export function buildSlotPlan(template: WorkoutTemplate): SlotPlan[] {
           role: 'B',
           setIndex,
           setsInBlock: block.sets,
-          targetReps: repsAt(block.targetRepsB ?? block.targetRepsA, setIndex),
+          targetReps: block.targetRepsB ?? block.targetRepsA,
           informational: false,
         })
       }
@@ -56,7 +56,7 @@ export function buildSlotPlan(template: WorkoutTemplate): SlotPlan[] {
 
     // A `single` block occupies one slot pair per set. The second ping of each pair is a cue.
     for (let setIndex = 0; setIndex < block.sets; setIndex++) {
-      const reps = block.holdSeconds ?? repsAt(block.targetRepsA, setIndex)
+      const reps = block.holdSeconds ?? block.targetRepsA
       slots.push({
         slotIndex: slots.length,
         blockIndex,
@@ -81,10 +81,4 @@ export function buildSlotPlan(template: WorkoutTemplate): SlotPlan[] {
   })
 
   return slots
-}
-
-/** Rep schemes shorter than the set count repeat their last entry. */
-function repsAt(reps: number[], setIndex: number): number {
-  if (reps.length === 0) return 0
-  return reps[Math.min(setIndex, reps.length - 1)]
 }

@@ -18,9 +18,9 @@ export interface Block {
   exerciseA: string
   exerciseB?: string
   sets: number
-  /** One entry per set, so 3x10 and 12/10/8 share a representation. */
-  targetRepsA: number[]
-  targetRepsB?: number[]
+  /** Applies to every set of the block. */
+  targetRepsA: number
+  targetRepsB?: number
   /** Present for holds rather than rep counts. Recorded as reps for storage. */
   holdSeconds?: number
 }
