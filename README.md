@@ -25,6 +25,20 @@ docker compose run --rm dev npm run build
 
 Podman works with the same file via `podman-compose`.
 
+### Browser tests
+
+End-to-end tests in `e2e/` run with Playwright in headless Chromium, in the `e2e` service. The test
+run starts its own Vite server on port 5174.
+
+```sh
+docker compose run --rm e2e npx playwright test
+docker compose run --rm --service-ports e2e npx playwright show-report --host 0.0.0.0 --port 9323
+```
+
+The first command runs the tests and writes the HTML report to `playwright-report/`. The second
+serves that report, including traces and screenshots of failed tests, at http://localhost:9323
+until stopped with Ctrl+C.
+
 Append `?fast` to the URL to expose 5s and 10s slot lengths, which runs a full 26-slot session in
 about two minutes for testing.
 
