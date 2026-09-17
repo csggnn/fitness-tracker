@@ -10,3 +10,18 @@ services:
     ports:
       - "5173:5173"
     command: npm run dev -- --host 0.0.0.0
+
+  # Browser tests. The image tag must match the @playwright/test version in package.json.
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    working_dir: /app
+    user: "1000:1000"
+    environment:
+      HOME: /tmp
+    # Chromium uses shared memory between its processes; the container default is too small.
+    ipc: host
+    volumes:
+      - .:/app
+    # HTML report and trace viewer. Published only with `docker compose run --service-ports`.
+    ports:
+      - "9323:9323"
